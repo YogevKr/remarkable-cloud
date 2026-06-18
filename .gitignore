@@ -1,0 +1,6 @@
+reference/
+node_modules/
+.dev.vars
+.wrangler/
+rm-backup-xochitl-*/
+dist/

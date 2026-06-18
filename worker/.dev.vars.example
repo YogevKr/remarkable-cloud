@@ -1,0 +1,7 @@
+# Copy to .dev.vars (gitignored) and fill in. Used by `wrangler dev`.
+JWT_SECRET="dev-only-change-me"
+ADMIN_TOKEN="dev-admin-token"
+R2_ACCOUNT_ID="your-cloudflare-account-id"
+R2_ACCESS_KEY_ID="your-r2-s3-access-key-id"
+R2_SECRET_ACCESS_KEY="your-r2-s3-secret-access-key"
+R2_BUCKET="remarkable-blobs"
