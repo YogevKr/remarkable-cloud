@@ -231,6 +231,17 @@ check(d.status === 201 && pdfId && d.data.name === "E2E paper", "upload PDF into
 d = await upload("E2E book.epub", epubBytes);
 const epubId = d.data.id;
 check(d.status === 201 && epubId, "upload EPUB");
+
+// Top-level uploads go into one "Drive" folder at the top level, created on first use.
+const driveFolderId = d.data.parent;
+const liveDriveFolders = (items) => items.filter((x) => x.kind === "folder" && x.name === "Drive" && x.parent === "");
+let listed = await drive("/api/items");
+check(liveDriveFolders(listed.data.items).some((f) => f.id === driveFolderId), "top-level upload lands in the Drive folder");
+const [par1, par2] = await Promise.all([upload("E2E parallel 1.pdf", pdfBytes), upload("E2E parallel 2.pdf", pdfBytes)]);
+listed = await drive("/api/items");
+check(par1.status === 201 && par2.status === 201 && par1.data.parent === driveFolderId && par2.data.parent === driveFolderId &&
+  liveDriveFolders(listed.data.items).length === 1,
+  "parallel top-level uploads share one Drive folder", `${liveDriveFolders(listed.data.items).length} live Drive folder(s)`);
 d = await upload("fake.pdf", Buffer.from("not a pdf"));
 check(d.status === 415, "reject a .pdf that is not a PDF", `got ${d.status}`);
 d = await upload("notes.txt", Buffer.from("hello"));
@@ -302,6 +313,9 @@ check(view.hashesOk, "tablet walk: every Merkle and sha256 hash matches");
 const meta = (id) => view.docs.get(id)?.meta;
 check(meta(folderId)?.type === "CollectionType" && meta(folderId)?.visibleName === "E2E folder", "tablet sees the folder");
 check(meta(subId)?.parent === folderId, "tablet sees the subfolder inside the folder");
+check(meta(driveFolderId)?.type === "CollectionType" && meta(driveFolderId)?.visibleName === "Drive" && meta(driveFolderId)?.parent === "",
+  "tablet sees the Drive folder at the top level");
+check(meta(par1.data.id)?.parent === driveFolderId, "tablet sees top-level uploads inside Drive");
 check(meta(pdfId)?.visibleName === "E2E renamed" && meta(pdfId)?.parent === "trash", "tablet sees the PDF renamed and in Trash");
 check(view.docs.get(pdfId)?.files[".pdf"]?.equals(pdfBytes), "tablet gets the exact PDF bytes");
 check(JSON.parse(view.docs.get(pdfId)?.files[".content"] ?? "{}").fileType === "pdf", "PDF .content says fileType pdf");

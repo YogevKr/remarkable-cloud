@@ -58,6 +58,8 @@ behind Cloudflare Access. The tablet keeps syncing over `CLOUD_HOST`; it never u
 
 - **Upload:** PDF and EPUB as they are. HTML files and web page URLs become PDF through
   Cloudflare Browser Rendering, with the page size of the reMarkable 2 screen.
+- **Drive folder:** an upload to the top level goes into a top-level folder named "Drive"
+  (created on first use, in the same commit as the upload). An upload into an open folder stays there.
 - **Remove:** "Move to Trash" sets `parent: "trash"`, like the tablet does. Restore puts the item
   back at the top level. To delete permanently, empty the Trash on the tablet.
 - **Writes:** build new blobs, then move the root pointer with CAS. On a concurrent tablet sync

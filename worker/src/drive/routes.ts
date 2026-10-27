@@ -98,6 +98,7 @@ drive.get("/api/items/:id/file", async (c) => {
 });
 
 // One file per request: PDF and EPUB as they are, HTML rendered to PDF.
+// An upload to the top level (parent "") goes into the "Drive" folder; the reply has the real parent.
 drive.post("/api/upload", async (c) => {
   if (Number(c.req.header("content-length") || 0) > MAX_UPLOAD_BYTES) throw new DriveError(413, "file is larger than 95 MB");
   const form = await c.req.formData().catch(() => null);
@@ -120,8 +121,8 @@ drive.post("/api/upload", async (c) => {
     throw new DriveError(415, "use PDF, EPUB, or HTML files");
   }
   const name = cleanName(base);
-  const id = await addDocument(c.env, c.get("uid"), source(c), { name, parent, ...doc });
-  return c.json({ id, name }, 201);
+  const saved = await addDocument(c.env, c.get("uid"), source(c), { name, parent, ...doc });
+  return c.json({ ...saved, name }, 201);
 });
 
 drive.post("/api/web", async (c) => {
@@ -136,8 +137,8 @@ drive.post("/api/web", async (c) => {
   const parent = parentOf(req.parent);
   const r = await renderPdf(c.env, { url: url.toString() });
   const name = cleanName(String(req.name || r.title || `${url.hostname}${url.pathname}`));
-  const id = await addDocument(c.env, c.get("uid"), source(c), { name, parent, ext: "pdf", bytes: r.pdf });
-  return c.json({ id, name }, 201);
+  const saved = await addDocument(c.env, c.get("uid"), source(c), { name, parent, ext: "pdf", bytes: r.pdf });
+  return c.json({ ...saved, name }, 201);
 });
 
 drive.post("/api/folders", async (c) => {
