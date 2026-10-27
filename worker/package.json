@@ -9,9 +9,11 @@
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types",
     "db:apply:local": "wrangler d1 migrations apply remarkable --local",
-    "db:apply:remote": "wrangler d1 migrations apply remarkable --remote"
+    "db:apply:remote": "wrangler d1 migrations apply remarkable --remote",
+    "test": "node --test test/"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "^1.4.0",
     "aws4fetch": "^1.0.20",
     "hono": "^4.6.14"
   },

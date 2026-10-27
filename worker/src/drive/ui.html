@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablet Drive</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='3' width='20' height='26' rx='3' fill='%23222'/%3E%3Crect x='9' y='7' width='14' height='17' rx='1' fill='%23f4f1ea'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f6f4ef; --surface: #ffffff; --surface-2: #f0ede6; --line: #e3dfd5;
+  --text: #1f1d1a; --muted: #6d685f; --accent: #2f5d50; --accent-text: #ffffff;
+  --danger: #a3392b; --focus: #2f5d50; --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08);
+  --folder: #b0893b; --pdf: #a3392b; --epub: #2f6a9a; --notebook: #55505a;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171614; --surface: #201f1c; --surface-2: #2a2825; --line: #35322d;
+    --text: #ece8e1; --muted: #a29c91; --accent: #7fb8a6; --accent-text: #10201b;
+    --danger: #e0806f; --focus: #7fb8a6; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
+    --folder: #d6b46a; --pdf: #e0806f; --epub: #7fb0dc; --notebook: #b5afba;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 96px; }
+
+header { display: flex; align-items: center; gap: 12px; padding: 18px 0 10px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 17px; letter-spacing: -.01em; }
+.brand svg { width: 22px; height: 22px; }
+header .spacer { flex: 1; }
+.gen { color: var(--muted); font-size: 13px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface); cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn[aria-pressed="true"] { background: var(--surface-2); border-color: var(--line); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 12px; }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; flex: 1; min-width: 0; font-size: 16px; }
+.crumbs a { color: var(--muted); text-decoration: none; padding: 4px 6px; border-radius: 6px; }
+.crumbs a:hover { background: var(--surface-2); color: var(--text); }
+.crumbs .here { font-weight: 600; padding: 4px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+.crumbs .sep { color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.webform { display: none; gap: 8px; margin: 0 0 12px; }
+.webform.open { display: flex; }
+.webform input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+
+.notice { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.head, .row { display: grid; grid-template-columns: 36px minmax(0,1fr) 90px 90px 150px 44px; align-items: center; gap: 8px; padding: 0 10px; }
+.head { height: 38px; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); }
+.head button { background: none; border: 0; padding: 0; color: inherit; cursor: pointer; font-size: 13px; text-align: left; }
+.head button[aria-sort] { color: var(--text); font-weight: 600; }
+.row { min-height: 52px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row:hover { background: var(--surface-2); }
+.row .ico svg { width: 24px; height: 24px; display: block; }
+.row .name { min-width: 0; }
+.row .name .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.row .name button.title { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; width: 100%; font-weight: 550; }
+.row .name button.title:hover { text-decoration: underline; }
+.row .sub { display: none; color: var(--muted); font-size: 12.5px; }
+.row .cell { color: var(--muted); font-size: 13.5px; white-space: nowrap; }
+.menu-btn { width: 34px; height: 34px; border-radius: 8px; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; }
+.menu-btn:hover { background: var(--line); }
+.menu-btn svg { width: 18px; height: 18px; }
+.empty { padding: 48px 16px; text-align: center; color: var(--muted); }
+.empty strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+
+.popover { position: fixed; z-index: 30; min-width: 190px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 5px; display: none; }
+.popover.open { display: block; }
+.popover button, .popover a { display: flex; width: 100%; align-items: center; gap: 9px; padding: 8px 10px; border: 0; background: none; border-radius: 7px; cursor: pointer; text-decoration: none; color: var(--text); font-size: 14px; text-align: left; }
+.popover button:hover, .popover a:hover { background: var(--surface-2); }
+.popover .danger { color: var(--danger); }
+.popover svg { width: 16px; height: 16px; }
+
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); padding: 20px; width: min(440px, calc(100vw - 32px)); box-shadow: var(--shadow); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog h2 { margin: 0 0 12px; font-size: 17px; }
+dialog input[type=text] { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.tree { max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.tree label { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; cursor: pointer; }
+.tree label:hover { background: var(--surface-2); }
+.tree input { accent-color: var(--accent); }
+
+.drop { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: color-mix(in srgb, var(--bg) 80%, transparent); }
+.drop.on { display: grid; }
+.drop div { border: 2px dashed var(--accent); border-radius: 18px; padding: 40px 48px; background: var(--surface); font-size: 17px; font-weight: 600; text-align: center; box-shadow: var(--shadow); }
+.drop small { display: block; color: var(--muted); font-weight: 400; font-size: 14px; margin-top: 6px; }
+
+.jobs { position: fixed; right: 16px; bottom: 16px; z-index: 20; width: min(360px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 8px; }
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 13.5px; }
+.job .top { display: flex; gap: 8px; align-items: baseline; }
+.job .jname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
+.job .state { color: var(--muted); white-space: nowrap; }
+.job.err .state { color: var(--danger); white-space: normal; }
+.job.done .state { color: var(--accent); }
+.bar { height: 4px; border-radius: 4px; background: var(--surface-2); margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.job button { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font-weight: 600; }
+
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 50; background: var(--text); color: var(--bg); border-radius: 10px; padding: 10px 14px; font-size: 14px; display: none; gap: 14px; align-items: center; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
+.toast.on { display: flex; }
+.toast button { background: none; border: 0; color: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0; }
+
+@media (max-width: 680px) {
+  .head { display: none; }
+  .row { grid-template-columns: 32px minmax(0,1fr) 40px; }
+  .row .cell { display: none; }
+  .row .sub { display: block; }
+  .crumbs .here { max-width: 70vw; }
+  .actions .label { display: none; }
+  .actions .btn { padding: 0 11px; }
+  .jobs { left: 16px; right: 16px; width: auto; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2.5" fill="currentColor"/><rect x="6.5" y="5" width="11" height="13" rx=".8" fill="var(--bg)"/></svg>
+      Tablet Drive
+    </div>
+    <div class="spacer"></div>
+    <span class="gen" id="gen"></span>
+    <button class="btn ghost" id="trashBtn" aria-pressed="false" title="Show Trash">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+      <span>Trash</span>
+    </button>
+  </header>
+
+  <div class="toolbar">
+    <nav class="crumbs" id="crumbs" aria-label="Folder path"></nav>
+    <div class="actions" id="actions">
+      <button class="btn primary" id="uploadBtn" title="Upload PDF, EPUB, or HTML files">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+        <span class="label">Upload</span>
+      </button>
+      <button class="btn" id="webBtn" title="Save a web page as PDF">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
+        <span class="label">Save web page</span>
+      </button>
+      <button class="btn" id="folderBtn" title="New folder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v6M9 13h6"/></svg>
+        <span class="label">New folder</span>
+      </button>
+    </div>
+  </div>
+
+  <form class="webform" id="webform" autocomplete="off">
+    <input type="url" id="webUrl" placeholder="https://example.com/article" aria-label="Web page URL" required>
+    <button class="btn primary" type="submit">Save as PDF</button>
+    <button class="btn" type="button" id="webCancel">Cancel</button>
+  </form>
+
+  <div class="notice" id="trashNote" hidden>Items here are in the tablet's Trash. Restore an item to put it back. To delete items permanently, empty the Trash on the tablet.</div>
+
+  <div class="list" id="list" role="table" aria-label="Files"></div>
+</div>
+
+<input type="file" id="fileInput" multiple accept=".pdf,.epub,.html,.htm,application/pdf,application/epub+zip,text/html" hidden>
+
+<div class="popover" id="menu" role="menu"></div>
+<div class="drop" id="drop"><div>Drop files to upload<small>PDF, EPUB, or HTML</small></div></div>
+<div class="jobs" id="jobs" aria-live="polite"></div>
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastAction" hidden></button></div>
+
+<dialog id="nameDialog">
+  <form method="dialog" id="nameForm">
+    <h2 id="nameTitle"></h2>
+    <input type="text" id="nameInput" maxlength="150" required aria-labelledby="nameTitle">
+    <div class="buttons">
+      <button class="btn" type="button" data-cancel>Cancel</button>
+      <button class="btn primary" value="ok" id="nameOk">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="moveDialog">
+  <form method="dialog" id="moveForm">
+    <h2 id="moveTitle">Move</h2>
+    <div class="tree" id="moveTree"></div>
+    <div class="buttons">
+      <button class="btn" type="button" data-cancel>Cancel</button>
+      <button class="btn primary" value="ok">Move here</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const TRASH = "trash";
+const state = { items: [], byId: new Map(), folder: "", trash: false, sort: { key: "name", dir: 1 }, generation: 0 };
+
+const ICONS = {
+  folder: '<svg viewBox="0 0 24 24" fill="var(--folder)"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6l2.2 2.2h7.2A2.5 2.5 0 0 1 21 8.7v8.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
+  pdf: '<svg viewBox="0 0 24 24"><path d="M6 2.5h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="none" stroke="var(--pdf)" stroke-width="1.6"/><path d="M14 2.5v5h5" fill="none" stroke="var(--pdf)" stroke-width="1.6"/><text x="12" y="17.5" text-anchor="middle" font-size="5.6" font-weight="700" fill="var(--pdf)" font-family="system-ui">PDF</text></svg>',
+  epub: '<svg viewBox="0 0 24 24"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v16H6.5A1.5 1.5 0 0 0 5 20.5z" fill="none" stroke="var(--epub)" stroke-width="1.6"/><path d="M5 20.5A1.5 1.5 0 0 0 6.5 22H19v-3" fill="none" stroke="var(--epub)" stroke-width="1.6"/><path d="M9 8h6M9 11h6" stroke="var(--epub)" stroke-width="1.6"/></svg>',
+  notebook: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--notebook)" stroke-width="1.6"><rect x="5" y="2.5" width="14" height="19" rx="1.5"/><path d="M8 7h8M8 10.5h8M8 14h5"/><path d="M14.5 18.5l4-4 1.5 1.5-4 4h-1.5z"/></svg>',
+};
+const KIND_LABEL = { folder: "Folder", pdf: "PDF", epub: "EPUB", notebook: "Notebook" };
+const SVG = {
+  dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>',
+  rename: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  move: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M10 13h6M13 10l3 3-3 3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  restore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg>',
+};
+
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "html") n.innerHTML = v; // only for our own static SVG strings
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null && v !== false) n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children) if (c !== null && c !== undefined) n.append(c);
+  return n;
+}
+
+// ---- API ------------------------------------------------------------------
+class SessionError extends Error {}
+async function api(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (opts.method && opts.method !== "GET") headers["X-Drive"] = "1";
+  if (opts.json !== undefined) { headers["content-type"] = "application/json"; opts.body = JSON.stringify(opts.json); }
+  let res;
+  try {
+    res = await fetch(path, { method: opts.method || "GET", headers, body: opts.body, credentials: "same-origin", redirect: "manual" });
+  } catch (e) {
+    throw new SessionError("Connection failed. Check the network, then try again.");
+  }
+  if (res.type === "opaqueredirect" || res.status === 401) throw new SessionError("Your login has expired. Reload the page to log in again.");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
+  return data;
+}
+
+// XHR, because fetch cannot report upload progress.
+function uploadFile(file, parent, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    xhr.setRequestHeader("X-Drive", "1");
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status === 201) resolve(data);
+      else if (xhr.status === 401 || xhr.status === 0) reject(new SessionError("Your login has expired. Reload the page to log in again."));
+      else reject(new Error(data.message || `Upload failed (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new SessionError("Upload failed. Check the network or reload the page."));
+    const form = new FormData();
+    form.append("parent", parent);
+    form.append("file", file);
+    xhr.send(form);
+  });
+}
+
+// ---- Data -----------------------------------------------------------------
+async function refresh() {
+  try {
+    const data = await api("/api/items");
+    state.items = data.items;
+    state.generation = data.generation;
+    state.byId = new Map(data.items.map((x) => [x.id, x]));
+    if (state.folder && !isVisibleFolder(state.folder)) state.folder = "";
+    render();
+  } catch (e) {
+    showError(e);
+  }
+}
+
+function inTrash(item) {
+  for (let cur = item, hops = 0; cur && hops < 100; hops++) {
+    if (cur.parent === TRASH) return true;
+    cur = state.byId.get(cur.parent);
+  }
+  return false;
+}
+function isVisibleFolder(id) {
+  const f = state.byId.get(id);
+  return !!f && f.kind === "folder" && !inTrash(f);
+}
+function pathTo(id) {
+  const out = [];
+  for (let cur = state.byId.get(id), hops = 0; cur && hops < 100; hops++) { out.unshift(cur); cur = state.byId.get(cur.parent); }
+  return out;
+}
+
+// ---- Render ---------------------------------------------------------------
+function fmtSize(n) {
+  if (!n) return "–";
+  const u = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return `${n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)} ${u[i]}`;
+}
+function fmtDate(ms) {
+  if (!ms) return "–";
+  const d = new Date(ms), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString(undefined, { year: d.getFullYear() === now.getFullYear() ? undefined : "numeric", month: "short", day: "numeric" });
+}
+
+function visibleItems() {
+  const list = state.trash
+    ? state.items.filter((x) => x.parent === TRASH)
+    : state.items.filter((x) => x.parent === state.folder);
+  const { key, dir } = state.sort;
+  return list.sort((a, b) => {
+    if ((a.kind === "folder") !== (b.kind === "folder")) return a.kind === "folder" ? -1 : 1;
+    let r = 0;
+    if (key === "name") r = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    else if (key === "size") r = a.size - b.size;
+    else if (key === "modified") r = a.modified - b.modified;
+    else if (key === "kind") r = KIND_LABEL[a.kind].localeCompare(KIND_LABEL[b.kind]);
+    return r * dir || a.name.localeCompare(b.name);
+  });
+}
+
+function render() {
+  $("gen").textContent = state.generation ? `Sync ${state.generation}` : "";
+  $("trashBtn").setAttribute("aria-pressed", String(state.trash));
+  $("trashNote").hidden = !state.trash;
+  $("actions").style.display = state.trash ? "none" : "";
+  if (state.trash) $("webform").classList.remove("open");
+
+  const crumbs = $("crumbs");
+  crumbs.replaceChildren();
+  if (state.trash) {
+    crumbs.append(el("a", { href: "#/" }, "Library"), el("span", { class: "sep" }, "›"), el("span", { class: "here" }, "Trash"));
+  } else {
+    const path = state.folder ? pathTo(state.folder) : [];
+    if (path.length) crumbs.append(el("a", { href: "#/" }, "Library"));
+    else crumbs.append(el("span", { class: "here" }, "Library"));
+    path.forEach((f, i) => {
+      crumbs.append(el("span", { class: "sep" }, "›"));
+      crumbs.append(i === path.length - 1 ? el("span", { class: "here", title: f.name }, f.name) : el("a", { href: `#/f/${f.id}` }, f.name));
+    });
+  }
+
+  const list = $("list");
+  list.replaceChildren();
+  const items = visibleItems();
+  const sortBtn = (key, label) => {
+    const on = state.sort.key === key;
+    return el("button", {
+      "aria-sort": on ? (state.sort.dir > 0 ? "ascending" : "descending") : null,
+      onclick: () => { state.sort = { key, dir: on ? -state.sort.dir : key === "modified" ? -1 : 1 }; render(); },
+    }, label + (on ? (state.sort.dir > 0 ? " ↑" : " ↓") : ""));
+  };
+  list.append(el("div", { class: "head", role: "row" },
+    el("span"), sortBtn("name", "Name"), sortBtn("kind", "Type"), sortBtn("size", "Size"), sortBtn("modified", "Changed"), el("span")));
+
+  if (!items.length) {
+    list.append(el("div", { class: "empty" },
+      el("strong", {}, state.trash ? "Trash is empty" : "This folder is empty"),
+      state.trash ? "" : "Drag PDF, EPUB, or HTML files here, or use Upload."));
+    return;
+  }
+  for (const item of items) {
+    const isFolder = item.kind === "folder";
+    const title = isFolder && !state.trash
+      ? el("button", { class: "title", onclick: () => { location.hash = `#/f/${item.id}`; } }, item.name)
+      : el("span", { class: "title", title: item.name }, item.name);
+    const sub = [KIND_LABEL[item.kind], isFolder ? null : fmtSize(item.size), fmtDate(item.modified)].filter(Boolean).join(" · ");
+    list.append(el("div", { class: "row", role: "row", "data-id": item.id },
+      el("span", { class: "ico", html: ICONS[item.kind] }),
+      el("div", { class: "name" }, title, el("span", { class: "sub" }, sub)),
+      el("span", { class: "cell" }, KIND_LABEL[item.kind]),
+      el("span", { class: "cell" }, isFolder ? "–" : fmtSize(item.size)),
+      el("span", { class: "cell" }, fmtDate(item.modified)),
+      el("button", { class: "menu-btn", "aria-label": `Actions for ${item.name}`, "aria-haspopup": "menu", html: SVG.dots, onclick: (e) => openMenu(e, item) }),
+    ));
+  }
+}
+
+// ---- Menu -----------------------------------------------------------------
+function openMenu(event, item) {
+  event.stopPropagation();
+  const menu = $("menu");
+  menu.replaceChildren();
+  const add = (icon, label, fn, cls) => menu.append(el("button", { role: "menuitem", class: cls, onclick: () => { closeMenu(); fn(); } }, el("span", { html: SVG[icon] }), label));
+  if (state.trash) {
+    add("restore", "Restore", () => setParent(item, "", `Restored ${item.name}`));
+  } else {
+    if (item.kind === "pdf" || item.kind === "epub") {
+      menu.append(el("a", { role: "menuitem", href: `/api/items/${encodeURIComponent(item.id)}/file`, download: "", onclick: closeMenu }, el("span", { html: SVG.download }), "Download"));
+    }
+    add("rename", "Rename", () => renameItem(item));
+    add("move", "Move", () => moveItem(item));
+    add("trash", "Move to Trash", () => trashItem(item), "danger");
+  }
+  menu.classList.add("open");
+  const r = event.currentTarget.getBoundingClientRect();
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  menu.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`;
+  menu.style.top = `${r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4}px`;
+  menu.querySelector("button, a")?.focus();
+}
+function closeMenu() { $("menu").classList.remove("open"); }
+document.addEventListener("click", (e) => { if (!$("menu").contains(e.target)) closeMenu(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+addEventListener("scroll", closeMenu, { passive: true });
+
+// ---- Actions --------------------------------------------------------------
+async function setParent(item, parent, message, undo) {
+  try {
+    await api(`/api/items/${encodeURIComponent(item.id)}`, { method: "PATCH", json: { parent } });
+    toast(message, undo);
+    await refresh();
+  } catch (e) { showError(e); }
+}
+function trashItem(item) {
+  const from = item.parent;
+  setParent(item, TRASH, `Moved ${item.name} to Trash`, { label: "Undo", fn: () => setParent(item, from, `Restored ${item.name}`) });
+}
+
+function askName(title, initial, okLabel) {
+  return new Promise((resolve) => {
+    const d = $("nameDialog");
+    $("nameTitle").textContent = title;
+    $("nameOk").textContent = okLabel;
+    $("nameInput").value = initial;
+    d.returnValue = "";
+    d.onclose = () => resolve(d.returnValue === "ok" ? $("nameInput").value.trim() : null);
+    d.showModal();
+    $("nameInput").select();
+  });
+}
+async function renameItem(item) {
+  const name = await askName("Rename", item.name, "Save");
+  if (!name || name === item.name) return;
+  try {
+    await api(`/api/items/${encodeURIComponent(item.id)}`, { method: "PATCH", json: { name } });
+    toast(`Renamed to ${name}`);
+    await refresh();
+  } catch (e) { showError(e); }
+}
+async function newFolder() {
+  const name = await askName("New folder", "", "Create");
+  if (!name) return;
+  try {
+    await api("/api/folders", { method: "POST", json: { name, parent: state.folder } });
+    toast(`Created ${name}`);
+    await refresh();
+  } catch (e) { showError(e); }
+}
+
+function moveItem(item) {
+  const d = $("moveDialog"), tree = $("moveTree");
+  $("moveTitle").textContent = `Move ${item.name}`;
+  tree.replaceChildren();
+  const blocked = (f) => { for (let cur = f, h = 0; cur && h < 100; h++) { if (cur.id === item.id) return true; cur = state.byId.get(cur.parent); } return false; };
+  const folders = state.items.filter((x) => x.kind === "folder" && !inTrash(x) && !blocked(x));
+  const children = (pid) => folders.filter((f) => f.parent === pid).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const option = (id, label, depth) => tree.append(el("label", { style: `padding-left:${8 + depth * 18}px` },
+    el("input", { type: "radio", name: "dest", value: id, checked: id === item.parent }),
+    el("span", { html: id === "" ? "" : ICONS.folder, style: "width:18px;height:18px;display:inline-flex" }), label));
+  option("", "Library (top level)", 0);
+  const walk = (pid, depth) => { for (const f of children(pid)) { option(f.id, f.name, depth); walk(f.id, depth + 1); } };
+  walk("", 1);
+  d.returnValue = "";
+  d.onclose = () => {
+    if (d.returnValue !== "ok") return;
+    const dest = tree.querySelector("input:checked")?.value;
+    if (dest === undefined || dest === item.parent) return;
+    const destName = dest ? state.byId.get(dest)?.name : "Library";
+    setParent(item, dest, `Moved ${item.name} to ${destName}`);
+  };
+  d.showModal();
+}
+
+// ---- Uploads --------------------------------------------------------------
+function addJob(name) {
+  const node = el("div", { class: "job" },
+    el("div", { class: "top" }, el("span", { class: "jname", title: name }, name), el("span", { class: "state" }, "Waiting")),
+    el("div", { class: "bar" }, el("i")));
+  $("jobs").append(node);
+  const set = (text, cls, pct) => {
+    node.querySelector(".state").textContent = text;
+    if (cls) node.className = `job ${cls}`;
+    if (pct !== undefined) node.querySelector(".bar i").style.width = `${Math.round(pct * 100)}%`;
+  };
+  const done = (ok) => {
+    node.querySelector(".bar").remove();
+    setTimeout(() => node.remove(), ok ? 3500 : 12000);
+    if (!ok) node.querySelector(".top").append(el("button", { onclick: () => node.remove(), "aria-label": "Close" }, "×"));
+  };
+  return { set, done };
+}
+
+const uploadQueue = [];
+let uploading = false;
+function queueFiles(files) {
+  if (state.trash) { state.trash = false; location.hash = state.folder ? `#/f/${state.folder}` : "#/"; }
+  for (const file of files) uploadQueue.push({ file, parent: state.folder, job: addJob(file.name) });
+  pump();
+}
+async function pump() {
+  if (uploading) return;
+  uploading = true;
+  while (uploadQueue.length) {
+    const { file, parent, job } = uploadQueue.shift();
+    const isHtml = /\.html?$/i.test(file.name);
+    try {
+      job.set("Uploading", null, 0);
+      await uploadFile(file, parent, (p) => job.set(p < 1 ? `Uploading ${Math.round(p * 100)}%` : isHtml ? "Converting to PDF" : "Saving", null, p));
+      job.set("On the tablet at next sync", "done", 1);
+      job.done(true);
+      await refresh();
+    } catch (e) {
+      job.set(e.message, "err");
+      job.done(false);
+    }
+  }
+  uploading = false;
+}
+
+async function saveWebPage(url) {
+  const job = addJob(url.replace(/^https?:\/\//, ""));
+  job.set("Rendering page", null, 0.4);
+  try {
+    const r = await api("/api/web", { method: "POST", json: { url, parent: state.folder } });
+    job.set(`Saved as ${r.name}`, "done", 1);
+    job.done(true);
+    await refresh();
+  } catch (e) {
+    job.set(e.message, "err");
+    job.done(false);
+  }
+}
+
+// ---- Feedback -------------------------------------------------------------
+let toastTimer;
+function toast(text, action) {
+  $("toastText").textContent = text;
+  const btn = $("toastAction");
+  btn.hidden = !action;
+  if (action) { btn.textContent = action.label; btn.onclick = () => { $("toast").classList.remove("on"); action.fn(); }; }
+  $("toast").classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("toast").classList.remove("on"), action ? 7000 : 3500);
+}
+function showError(e) {
+  toast(e instanceof SessionError || e instanceof Error ? e.message : String(e), e instanceof SessionError ? { label: "Reload", fn: () => location.reload() } : null);
+}
+
+// ---- Wiring ---------------------------------------------------------------
+// Cancel is type="button": Enter in a dialog form submits with the first submit button.
+for (const b of document.querySelectorAll("[data-cancel]")) b.onclick = () => b.closest("dialog").close("cancel");
+function route() {
+  const h = location.hash;
+  state.trash = h === "#/trash";
+  state.folder = h.startsWith("#/f/") ? decodeURIComponent(h.slice(4)) : "";
+  if (state.folder && state.items.length && !isVisibleFolder(state.folder)) { location.hash = "#/"; return; }
+  render();
+}
+addEventListener("hashchange", route);
+
+$("trashBtn").onclick = () => { location.hash = state.trash ? (state.folder ? `#/f/${state.folder}` : "#/") : "#/trash"; };
+$("uploadBtn").onclick = () => $("fileInput").click();
+$("fileInput").onchange = (e) => { queueFiles([...e.target.files]); e.target.value = ""; };
+$("folderBtn").onclick = newFolder;
+$("webBtn").onclick = () => { $("webform").classList.toggle("open"); if ($("webform").classList.contains("open")) $("webUrl").focus(); };
+$("webCancel").onclick = () => $("webform").classList.remove("open");
+$("webform").onsubmit = (e) => {
+  e.preventDefault();
+  const url = $("webUrl").value.trim();
+  if (!url) return;
+  $("webUrl").value = "";
+  $("webform").classList.remove("open");
+  saveWebPage(url);
+};
+
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $("drop").classList.add("on"); });
+addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+addEventListener("dragleave", (e) => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; $("drop").classList.remove("on"); } });
+addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  $("drop").classList.remove("on");
+  queueFiles([...e.dataTransfer.files]);
+});
+
+// Refresh when the tab comes back, so tablet changes show up.
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+
+route();
+refresh();
+</script>
+</body>
+</html>
