@@ -7,6 +7,7 @@ type Ctx = Context<{ Bindings: Env; Variables: Vars }>;
 import { blobKey } from "../util/r2presign";
 import { signedBlobUrl } from "./blobstorage";
 import { crc32cHeader } from "../util/hash";
+import { casRoot, getRoot } from "../roots";
 
 export const sync = new Hono<{ Bindings: Env; Variables: Vars }>();
 sync.use("*", userAuth);
@@ -15,40 +16,7 @@ const rfc3339Nano = (ms: number) => new Date(ms).toISOString(); // RFC3339, UTC,
 const SCHEMA_VERSION = 3;
 const MAX_UPLOAD_BYTES = 7_000_000_000;
 
-// ---- Root pointer (D1, compare-and-set) ----------------------------------
-
-async function getRoot(env: Env, uid: string) {
-  return env.DB.prepare("SELECT hash, generation FROM roots WHERE uid = ?1")
-    .bind(uid)
-    .first<{ hash: string; generation: number }>();
-}
-
-// CAS rule: reject iff expectedGen != currentGen && currentGen > 0 && rootExists.
-// First write (no row) always succeeds and lands at generation 1.
-async function casRoot(
-  env: Env,
-  uid: string,
-  expectedGen: number,
-  hash: string,
-): Promise<{ ok: true; generation: number } | { ok: false; generation: number }> {
-  const now = Math.floor(Date.now() / 1000);
-  const upd = await env.DB.prepare(
-    "UPDATE roots SET hash = ?1, generation = generation + 1, updated = ?2 WHERE uid = ?3 AND generation = ?4",
-  ).bind(hash, now, uid, expectedGen).run();
-  if (upd.meta.changes && upd.meta.changes > 0) {
-    return { ok: true, generation: expectedGen + 1 };
-  }
-  const cur = await getRoot(env, uid);
-  if (!cur) {
-    const ins = await env.DB.prepare(
-      "INSERT INTO roots (uid, hash, generation, updated) VALUES (?1, ?2, 1, ?3) ON CONFLICT(uid) DO NOTHING",
-    ).bind(uid, hash, now).run();
-    if (ins.meta.changes && ins.meta.changes > 0) return { ok: true, generation: 1 };
-    const cur2 = await getRoot(env, uid);
-    return { ok: false, generation: cur2?.generation ?? 0 };
-  }
-  return { ok: false, generation: cur.generation };
-}
+// ---- Root pointer (D1, compare-and-set; see roots.ts) --------------------
 
 sync.get("/sync/v3/root", async (c) => {
   const root = await getRoot(c.env, c.get("uid"));
@@ -71,7 +39,7 @@ sync.get("/sync/v4/root", async (c) => {
 sync.put("/sync/v3/root", async (c) => {
   const req = await c.req.json<{ generation?: number; hash?: string; broadcast?: boolean }>().catch(() => null);
   if (!req?.hash) return c.json({ message: "missing hash" }, 400);
-  const res = await casRoot(c.env, c.get("uid"), req.generation ?? 0, req.hash);
+  const res = await casRoot(c.env, c.get("uid"), req.generation ?? 0, req.hash, `device:${c.get("deviceId")}`);
   if (!res.ok) {
     // 412 (reference returns 500 here — we fix it). Include current generation.
     c.header("x-goog-generation", String(res.generation));

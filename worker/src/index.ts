@@ -7,6 +7,7 @@ import { admin } from "./routes/admin";
 import { sync } from "./routes/sync";
 import { blobstorage } from "./routes/blobstorage";
 import { userAuth } from "./auth";
+import { drive } from "./drive/routes";
 
 export { UserHub } from "./hub";
 
@@ -51,4 +52,11 @@ app.all("*", (c) => {
   return c.json({ message: "not implemented" }, 404);
 });
 
-export default app;
+// The drive lives on its own hostname (behind Cloudflare Access); every other
+// hostname gets the device API above. The drive also checks the Access JWT itself.
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    if (env.DRIVE_HOST && new URL(request.url).hostname === env.DRIVE_HOST) return drive.fetch(request, env, ctx);
+    return app.fetch(request, env, ctx);
+  },
+} satisfies ExportedHandler<Env>;
