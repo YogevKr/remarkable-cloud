@@ -65,6 +65,7 @@ header .spacer { flex: 1; }
 .webform.open { display: flex; }
 .webform input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 
+.hint { color: var(--muted); font-size: 13px; margin: -4px 0 10px 6px; }
 .notice { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
 
 .list { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
@@ -175,6 +176,8 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
     <button class="btn primary" type="submit">Save as PDF</button>
     <button class="btn" type="button" id="webCancel">Cancel</button>
   </form>
+
+  <p class="hint" id="uploadHint" hidden>Uploads here go into the Drive folder.</p>
 
   <div class="notice" id="trashNote" hidden>Items here are in the tablet's Trash. Restore an item to put it back. To delete items permanently, empty the Trash on the tablet.</div>
 
@@ -351,6 +354,7 @@ function render() {
   $("gen").textContent = state.generation ? `Sync ${state.generation}` : "";
   $("trashBtn").setAttribute("aria-pressed", String(state.trash));
   $("trashNote").hidden = !state.trash;
+  $("uploadHint").hidden = state.trash || state.folder !== "";
   $("actions").style.display = state.trash ? "none" : "";
   if (state.trash) $("webform").classList.remove("open");
 
@@ -534,10 +538,11 @@ async function pump() {
     const isHtml = /\.html?$/i.test(file.name);
     try {
       job.set("Uploading", null, 0);
-      await uploadFile(file, parent, (p) => job.set(p < 1 ? `Uploading ${Math.round(p * 100)}%` : isHtml ? "Converting to PDF" : "Saving", null, p));
-      job.set("On the tablet at next sync", "done", 1);
-      job.done(true);
+      const saved = await uploadFile(file, parent, (p) => job.set(p < 1 ? `Uploading ${Math.round(p * 100)}%` : isHtml ? "Converting to PDF" : "Saving", null, p));
       await refresh();
+      // Top-level uploads land in the Drive folder; say where.
+      job.set(parent === "" ? `Saved in ${state.byId.get(saved.parent)?.name || "Drive"}` : "On the tablet at next sync", "done", 1);
+      job.done(true);
     } catch (e) {
       job.set(e.message, "err");
       job.done(false);
@@ -550,10 +555,11 @@ async function saveWebPage(url) {
   const job = addJob(url.replace(/^https?:\/\//, ""));
   job.set("Rendering page", null, 0.4);
   try {
-    const r = await api("/api/web", { method: "POST", json: { url, parent: state.folder } });
-    job.set(`Saved as ${r.name}`, "done", 1);
-    job.done(true);
+    const from = state.folder;
+    const r = await api("/api/web", { method: "POST", json: { url, parent: from } });
     await refresh();
+    job.set(`Saved as ${r.name}${from === "" ? ` in ${state.byId.get(r.parent)?.name || "Drive"}` : ""}`, "done", 1);
+    job.done(true);
   } catch (e) {
     job.set(e.message, "err");
     job.done(false);
@@ -604,7 +610,13 @@ $("webform").onsubmit = (e) => {
 
 let dragDepth = 0;
 const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
-addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $("drop").classList.add("on"); });
+addEventListener("dragenter", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  $("drop").querySelector("div").firstChild.textContent = !state.trash && state.folder === "" ? "Drop files to upload to Drive" : "Drop files to upload";
+  $("drop").classList.add("on");
+});
 addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
 addEventListener("dragleave", (e) => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; $("drop").classList.remove("on"); } });
 addEventListener("drop", (e) => {

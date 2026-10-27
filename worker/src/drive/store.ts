@@ -178,30 +178,58 @@ export async function addDocument(
   uid: string,
   source: string,
   doc: { name: string; ext: "pdf" | "epub"; bytes: Uint8Array; parent: string },
-): Promise<string> {
-  await checkTarget(env, uid, (await loadTree(env, uid)).entries, doc.parent); // fail fast, before the upload
+): Promise<{ id: string; parent: string }> {
+  if (doc.parent !== "") await checkTarget(env, uid, (await loadTree(env, uid)).entries, doc.parent); // fail fast
   const id = crypto.randomUUID();
-  const files = [
-    await putFile(env, uid, `${id}.metadata`, jsonBytes(newMetadata(doc.name, "DocumentType", doc.parent, Date.now()))),
+  // The payload does not depend on the folder, so it is stored once, outside the CAS retries.
+  const body = [
     await putFile(env, uid, `${id}.content`, jsonBytes(newContent(doc.ext))),
     await putFile(env, uid, `${id}.${doc.ext}`, doc.bytes),
   ];
-  const line = await putDoc(env, uid, id, files);
+  let parent = doc.parent;
   await commit(env, uid, source, async (entries) => {
-    await checkTarget(env, uid, entries, doc.parent);
-    return [...entries, line];
+    const added: Entry[] = [];
+    parent = doc.parent;
+    if (parent === "") {
+      const folder = await uploadFolder(env, uid, entries);
+      parent = folder.id;
+      if (folder.line) added.push(folder.line);
+    }
+    const all = [...entries, ...added];
+    await checkTarget(env, uid, all, parent);
+    const meta = await putFile(env, uid, `${id}.metadata`, jsonBytes(newMetadata(doc.name, "DocumentType", parent, Date.now())));
+    return [...all, await putDoc(env, uid, id, [meta, ...body])];
   });
-  return id;
+  return { id, parent };
+}
+
+// Top-level uploads go into this folder, so drive files do not mix with tablet notebooks.
+export const UPLOAD_FOLDER = "Drive";
+
+// Finds the live top-level upload folder in `entries`, or builds a new one. The caller adds
+// the new line in the same commit, so parallel uploads cannot create two of them.
+async function uploadFolder(env: Env, uid: string, entries: Entry[]): Promise<{ id: string; line?: Entry }> {
+  const items = await mapLimit(entries, 16, (e) => docInfo(env, uid, e));
+  const found = items
+    .filter((x) => x.kind === "folder" && x.parent === "" && x.name === UPLOAD_FOLDER)
+    .sort((a, b) => (a.id < b.id ? -1 : 1))[0];
+  if (found) return { id: found.id };
+  const id = crypto.randomUUID();
+  return { id, line: await folderLine(env, uid, id, UPLOAD_FOLDER, "") };
+}
+
+// Stores a folder's blobs (.metadata + .content, like the tablet) and returns its root-index line.
+async function folderLine(env: Env, uid: string, id: string, name: string, parent: string): Promise<Entry> {
+  const type: DocType = "CollectionType";
+  return putDoc(env, uid, id, [
+    await putFile(env, uid, `${id}.metadata`, jsonBytes(newMetadata(name, type, parent, Date.now()))),
+    await putFile(env, uid, `${id}.content`, jsonBytes(newFolderContent())),
+  ]);
 }
 
 export async function createFolder(env: Env, uid: string, source: string, name: string, parent: string): Promise<string> {
   const id = crypto.randomUUID();
-  const type: DocType = "CollectionType";
-  const files = [
-    await putFile(env, uid, `${id}.metadata`, jsonBytes(newMetadata(name, type, parent, Date.now()))),
-    await putFile(env, uid, `${id}.content`, jsonBytes(newFolderContent())),
-  ];
-  const line = await putDoc(env, uid, id, files);
+  const line = await folderLine(env, uid, id, name, parent);
   await commit(env, uid, source, async (entries) => {
     await checkTarget(env, uid, entries, parent);
     return [...entries, line];
