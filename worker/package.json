@@ -10,7 +10,7 @@
     "cf-typegen": "wrangler types",
     "db:apply:local": "wrangler d1 migrations apply remarkable --local",
     "db:apply:remote": "wrangler d1 migrations apply remarkable --remote",
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {
     "@cloudflare/puppeteer": "^1.4.0",
