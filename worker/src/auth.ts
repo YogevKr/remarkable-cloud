@@ -102,13 +102,24 @@ export const userAuth: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = a
   await next();
 };
 
-// Device-token validation for POST /token/json/2/user/new
-export async function deviceUid(c: Context<{ Bindings: Env; Variables: Vars }>): Promise<string | null> {
+// Device-token validation for POST /token/json/2/user/new. Also returns the device's own
+// id and description, so the user token names the device (sync notifications skip only
+// the device that synced, and root_history records which device wrote).
+export async function deviceIdentity(
+  c: Context<{ Bindings: Env; Variables: Vars }>,
+): Promise<{ uid: string; deviceId: string; deviceDesc: string } | null> {
   const token = bearer(c.req.header("Authorization"));
   if (!token) return null;
-  const claims = await verifyJwt<{ "auth0-userid"?: string }>(token, c.env.JWT_SECRET);
+  const claims = await verifyJwt<{ "auth0-userid"?: string; "device-id"?: string; "device-desc"?: string }>(
+    token,
+    c.env.JWT_SECRET,
+  );
   if (!claims || !claims["auth0-userid"]) return null;
-  return stripAuth0(claims["auth0-userid"]);
+  return {
+    uid: stripAuth0(claims["auth0-userid"]),
+    deviceId: claims["device-id"] || "",
+    deviceDesc: claims["device-desc"] || "remarkable",
+  };
 }
 
 // ---- Password hashing (PBKDF2-SHA256) ------------------------------------

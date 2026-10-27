@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env, Vars } from "../types";
-import { mintDeviceToken, mintUserToken, deviceUid } from "../auth";
+import { mintDeviceToken, mintUserToken, deviceIdentity } from "../auth";
 
 export const tokens = new Hono<{ Bindings: Env; Variables: Vars }>();
 
@@ -30,19 +30,19 @@ tokens.post("/token/json/2/device/new", async (c) => {
 
 // Exchange a device token for a short-lived user token (raw text body).
 tokens.post("/token/json/2/user/new", async (c) => {
-  const uid = await deviceUid(c);
-  if (!uid) return c.json({ message: "invalid device token" }, 401);
+  const device = await deviceIdentity(c);
+  if (!device) return c.json({ message: "invalid device token" }, 401);
 
   const user = await c.env.DB.prepare(
     "SELECT email, sync15 FROM users WHERE uid = ?1",
-  ).bind(uid).first<{ email: string; sync15: number }>();
+  ).bind(device.uid).first<{ email: string; sync15: number }>();
   if (!user) return c.json({ message: "unknown user" }, 401);
 
-  // device-desc/id ride along from the device token; re-read for the new token.
+  // device-desc/id ride along from the device token into the user token.
   const token = await mintUserToken(
-    uid,
-    "remarkable",
-    "",
+    device.uid,
+    device.deviceDesc,
+    device.deviceId,
     user.email,
     user.sync15 === 1,
     c.env.CLOUD_HOST,

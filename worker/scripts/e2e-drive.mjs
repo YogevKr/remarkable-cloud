@@ -7,7 +7,7 @@
 //   node scripts/e2e-drive.mjs --api http://127.0.0.1:8787 --drive http://localhost:8787 \
 //     --code <pairing code> --jwt-key <private-jwk.json> --aud <aud> --iss https://<team> --email <identity>
 // Production (Access service token in CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET):
-//   node scripts/e2e-drive.mjs --api https://<cloud host> --drive https://<drive host> --code <code> --service-token [--web <url>]
+//   node scripts/e2e-drive.mjs --api https://<cloud host> --drive https://<drive host> --code <code> [--code2 <2nd code>] --service-token [--web <url>]
 
 import { createHash, createSign, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -18,6 +18,7 @@ const { values: opt } = parseArgs({
     api: { type: "string" },
     drive: { type: "string" },
     code: { type: "string" },
+    code2: { type: "string" }, // optional second pairing code: adds a two-device notification check
     "jwt-key": { type: "string" },
     aud: { type: "string" },
     iss: { type: "string" },
@@ -135,13 +136,16 @@ const deviceId = randomUUID();
 let res = await fetch(`${opt.api}/token/json/2/device/new`, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ code: opt.code, deviceDesc: "remarkable", deviceID: deviceId }),
+  body: JSON.stringify({ code: opt.code, deviceDesc: "e2e-fake-tablet", deviceID: deviceId }),
 });
 if (!check(res.ok, "pair fake tablet with code")) process.exit(1);
 const deviceToken = await res.text();
 res = await fetch(`${opt.api}/token/json/2/user/new`, { method: "POST", headers: { Authorization: `Bearer ${deviceToken}` } });
 if (!check(res.ok, "device token -> user token")) process.exit(1);
 userToken = await res.text();
+const userClaims = JSON.parse(Buffer.from(userToken.split(".")[1], "base64url").toString());
+check(userClaims["device-id"] === deviceId && userClaims["device-desc"] === "e2e-fake-tablet",
+  "user token names the device", `device-id ${userClaims["device-id"] ? "set" : "empty"}`);
 
 // 2. Tablet syncs a notebook up, like a real device.
 const nbId = randomUUID();
@@ -177,6 +181,32 @@ try {
   globalThis.__ws = ws;
 } catch (err) {
   console.log(`WARN  could not open the notification WebSocket: ${err.message}`);
+}
+
+// 3b. Optional second device: a sync from tablet A must reach device B and must not echo to A.
+if (opt.code2 && globalThis.__ws) {
+  const idB = randomUUID();
+  let r = await fetch(`${opt.api}/token/json/2/device/new`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: opt.code2, deviceDesc: "e2e-second-device", deviceID: idB }),
+  });
+  const deviceB = r.ok ? await r.text() : "";
+  r = await fetch(`${opt.api}/token/json/2/user/new`, { method: "POST", headers: { Authorization: `Bearer ${deviceB}` } });
+  const userB = r.ok ? await r.text() : "";
+  check(!!userB, "pair a second fake device");
+  const msgsB = [];
+  const wsB = new WebSocket(opt.api.replace(/^http/, "ws") + "/notifications/ws/json/1", { headers: { Authorization: `Bearer ${userB}` } });
+  wsB.onmessage = (e) => msgsB.push(JSON.parse(String(e.data)));
+  await new Promise((ok, bad) => { wsB.onopen = ok; wsB.onerror = bad; setTimeout(() => bad(new Error("timeout")), 8000); });
+  const seenByA = messages.length;
+  const cur = await root();
+  res = await device("/sync/v3/root", { method: "PUT", json: { generation: cur.generation, hash: cur.hash, broadcast: true } });
+  await new Promise((ok) => setTimeout(ok, 1500));
+  const fromA = (list) => list.filter((m) => m.message?.attributes?.sourceDeviceID === deviceId);
+  check(res.ok && fromA(msgsB).length > 0, "a tablet sync notifies the other device", `${fromA(msgsB).length} message(s)`);
+  check(fromA(messages.slice(seenByA)).length === 0, "a tablet sync does not echo to itself");
+  wsB.close();
 }
 
 // 4. Drive auth gates.
